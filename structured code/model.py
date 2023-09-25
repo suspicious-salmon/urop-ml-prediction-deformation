@@ -44,7 +44,7 @@ class ResBlock(nn.Module):
         return e2
     
 class DownResBlock(nn.Module):
-    def __init__(self, in_dim, n_input_channels=1, do_batchnorm=False, do_layernorm=False, do_residual=True, act=nn.ReLU())
+    def __init__(self, in_dim, n_input_channels=1, do_batchnorm=False, do_layernorm=False, do_residual=True, act=nn.ReLU()):
         self.resblock = ResBlock(in_dim, n_input_channels, do_batchnorm, do_layernorm, do_residual, act)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
@@ -67,7 +67,7 @@ class UpResBlock(nn.Module):
         return e
 
 class DeepResUnet(nn.Module):
-    def __init__(self, in_dim, output_upscale_factor=1, n_input_channels=1, do_output_sigmoid=True, do_batchnorm=False, do_layernorm=False, do_residual=True, act=nn.ReLU()):
+    def __init__(self, in_dim, n_encode_blocks, output_upscale_factor=1, n_input_channels=1, do_output_sigmoid=True, do_batchnorm=False, do_layernorm=False, do_residual=True, act=nn.ReLU()):
         """My DeepResUnet model. Inputs and returns shape (batch_size, n_input_channels, in_dim, in_dim)
 
         Args:
@@ -86,28 +86,38 @@ class DeepResUnet(nn.Module):
         do_bias = not (do_batchnorm or do_layernorm)
 
         self.first_conv = nn.Conv2d(n_input_channels, n_input_channels*width, kernel_size=3, padding="same", bias=True)
-        self.second_conv = nn.Conv2d(n_input_channels*width, n_input_channels*width, kernel_size=3, padding="same", bias=do_bias)
-
         self.first_bn = nn.BatchNorm2d(n_input_channels*width)
         self.first_ln = nn.LayerNorm((n_input_channels*width, in_dim, in_dim))
+        self.second_conv = nn.Conv2d(n_input_channels*width, n_input_channels*width, kernel_size=3, padding="same", bias=do_bias)
 
-        self.down1 = DownResBlock(in_dim, n_input_channels*width, do_batchnorm,do_layernorm, do_residual, act),
-        self.down3 = DownResBlock(in_dim//4, n_input_channels*width, do_batchnorm,do_layernorm, do_residual, act),
-        self.down2 = DownResBlock(in_dim//2, n_input_channels*width, do_batchnorm,do_layernorm, do_residual, act),
-        self.down4 = DownResBlock(in_dim//8, n_input_channels*width, do_batchnorm,do_layernorm, do_residual, act),
-        self.down5 = DownResBlock(in_dim//16, n_input_channels*width, do_batchnorm,do_layernorm, do_residual, act),
-        self.down6 = DownResBlock(in_dim//32, n_input_channels*width, do_batchnorm,do_layernorm, do_residual, act),
+        self.encode_blocks = nn.ModuleList([DownResBlock(in_dim//(2**i), n_input_channels*width, do_batchnorm,do_layernorm, do_residual, act) for i in range(n_encode_blocks)])
+        self.decode_blocks = nn.ModuleList([UpResBlock(in_dim//(2**i), n_input_channels*width, do_batchnorm,do_layernorm, do_residual, act) for i in range(n_encode_blocks, 0, -1)])
+
+        self.last_bn = nn.BatchNorm2d(n_input_channels*width)
+        self.last_ln = nn.LayerNorm((n_input_channels*width, in_dim, in_dim))
+        self.outconv = nn.Conv2d(n_input_channels*width, 1, kernel_size=1)
+        if self.output_upscale_factor > 1: self.output_upscale = nn.ConvTranspose2d(1, 1, kernel_size=output_upscale_factor, stride=output_upscale_factor)
 
     def forward(self, x):
         e1 = self.first_conv(x)
         if self.do_batchnorm: e1 = self.first_bn(e1)
         elif self.do_layernorm: e1 = self.first_ln(e1)
-        e2 = self.second_conv(e1)
+        out = self.second_conv(e1)
 
-        # loop through modulelist
+        out_skip_xs = [] # stores outputs of each DownResBlock to use in skip connections
+        for module in self.encode_blocks:
+            out_skip_xs.append(out)
+            out = module.forward(out)
+        for idx, module in enumerate(self.decode_blocks):
+            out = module.forward(out, out_skip_xs[len(self.encode_blocks-1-idx)])
 
-        # do output sigmoid stuff
-        # do output scale factor stuff
+        if self.do_batchnorm: out = self.last_bn(out)
+        elif self.do_layernorm: out = self.last_ln(out)
+        decoded = self.outconv(out)
+        if self.output_upscale_factor > 1: decoded = self.output_upscale(decoded)
+        if self.do_output_sigmoid: decoded = sigmoid(decoded)
+
+        return decoded
 
 class UNet(nn.Module):
     def __init__(self, in_dim, output_upscale_factor=1, n_input_channels=1, do_output_sigmoid=True, do_batchnorm=False, do_layernorm=False):
