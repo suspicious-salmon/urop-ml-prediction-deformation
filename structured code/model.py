@@ -18,6 +18,8 @@ class ResBlock(nn.Module):
             do_first_norm (bool, optional): Defaults to True. If a method of normalisation is used, sets whether this normalisation is applied at the input to the block. Should be false if this is the first block in the network.
         """
 
+        super().__init__()
+
         self.act = act # activation function
         self.do_batchnorm = do_batchnorm
         self.do_layernorm = do_layernorm
@@ -33,6 +35,7 @@ class ResBlock(nn.Module):
         self.conv2 = nn.Conv2d(n_input_channels, n_input_channels, kernel_size=3, padding="same", bias=do_bias)
 
     def forward(self, x):
+        p = x.clone()
         if self.do_batchnorm and self.do_batchnorm: p = self.bn1(p)
         if self.do_layernorm and self.do_layernorm: p = self.ln1(p)
         e1 = self.conv1(self.act(p))
@@ -45,6 +48,7 @@ class ResBlock(nn.Module):
     
 class DownResBlock(nn.Module):
     def __init__(self, in_dim, n_input_channels=1, do_batchnorm=False, do_layernorm=False, do_residual=True, act=nn.ReLU()):
+        super().__init__()
         self.resblock = ResBlock(in_dim, n_input_channels, do_batchnorm, do_layernorm, do_residual, act)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
@@ -55,6 +59,7 @@ class DownResBlock(nn.Module):
     
 class UpResBlock(nn.Module):
     def __init__(self, in_dim, n_input_channels=1, do_batchnorm=False, do_layernorm=False, do_residual=True, act=nn.ReLU()):
+        super().__init__()
         do_bias = not (do_batchnorm or do_layernorm)
 
         self.resblock = ResBlock(in_dim, n_input_channels, do_batchnorm, do_layernorm, do_residual, act)
@@ -76,6 +81,8 @@ class DeepResUnet(nn.Module):
             do_batchnorm (bool, optional): Defaults to False.
             do_layernorm (bool, optional): Defaults to False.
         """
+
+        super().__init__()
 
         width = 32
 

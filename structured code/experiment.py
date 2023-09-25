@@ -37,7 +37,7 @@ def run(optimiser_name, optimiser_args, loss_function_name, batch_size, epochs, 
      train_dl = dataloader.WrappedDataLoader(DataLoader(train_ds, batch_size=batch_size, shuffle=True, pin_memory=not(is_nonstandard_model)), func=wrap_func)
      valid_dl = dataloader.WrappedDataLoader(DataLoader(valid_ds, batch_size=batch_size, shuffle=True, pin_memory=not(is_nonstandard_model)), func=wrap_func)
 
-     if not is_nonstandard_model: print(torchinfo.summary(my_model.to(torch.device("cpu")), input_size=(batch_size, 1, out_dim, out_dim)))
+     # if not is_nonstandard_model: print(torchinfo.summary(my_model.to(torch.device("cpu")), input_size=(batch_size, 1, out_dim, out_dim)))
      optimiser = OPTIMISERS[optimiser_name](my_model.parameters(), **optimiser_args)
      # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimiser, 'min', factor = 0.9, patience = 3)
      loss_function = LOSS_FUNCTIONS[loss_function_name]
@@ -76,7 +76,7 @@ def run(optimiser_name, optimiser_args, loss_function_name, batch_size, epochs, 
      torch.save(my_model.state_dict(), os.path.join(params_dir, f"{start_time}.torchparams"))
      if log_wandb: wandb.finish()
 
-params_dir = r"C:\Users\gregk\Documents\MyDocuments\Brogramming & Electronics\Python\urop-structured-nn\trained_params"
+params_dir = r"E:\greg\Chinese Characters\3D Printed Deformations\trained_params"
 assert os.path.isdir(params_dir), f"Parameters folder does not exist at {params_dir}"
 dataset_dir = r"E:\greg\Chinese Characters\3D Printed Deformations\SyntheticStrokeDataset1"
 
@@ -86,7 +86,7 @@ loss_function = "BCE"
 epochs = 40+2 # +2 allows train function to show final result
 
 PARAMS_DICT = {
-    "learning_rates" : [0.001, 0.0003],
+    "learning_rates" : [0.0003],
     "betas" : [(0.9, 0.999)],
     "weight_decay" : [0],
     "transforms" : ["None"],
@@ -95,7 +95,7 @@ PARAMS_DICT = {
     "do_layernorm" : [True],
 }
 
-k = 64
+k = 128
 in_dim = 1024
 out_dim = k
 crop_amount = 0
@@ -105,12 +105,12 @@ crop_amount = 0
 # valid_ds = dataloader.DeformedDataset(os.path.join(dataset_dir, "Test", "Features"), os.path.join(dataset_dir, "Test", "Labels"),
 #                                       in_dim, out_dim)
 
-scales = (64, 32)
+# scales = (64, 32)
 train_feature_dir = r"C:\Users\gregk\Documents\MyDocuments\Brogramming & Electronics\Python\urop-structured-nn\Data\Features"
 train_label_dir = r"C:\Users\gregk\Documents\MyDocuments\Brogramming & Electronics\Python\urop-structured-nn\Data\Labels"
 # train_ds = dataloader.PyramidDataset(train_feature_dir, train_feature_dir, scales, in_dim, crop_amount)
 # valid_ds = dataloader.PyramidDataset(train_feature_dir, train_feature_dir, scales, in_dim, crop_amount)
-onedir=r"C:\Users\gregk\Documents\MyDocuments\Brogramming & Electronics\Python\urop-structured-nn\Data\Features\bc.tif"
+onedir=r"E:\greg\Chinese Characters\3D Printed Deformations\urop-structured-nn\Data\Features\bc.tif"
 train_ds = dataloader.MemoriseShape(onedir, onedir, out_dim)
 valid_ds = dataloader.MemoriseShape(onedir, onedir, out_dim)
 
@@ -119,7 +119,8 @@ def wrap_func_pyramid(x, y):
 def wrap_func(x, y):
      return x.to(dev), y.to(dev)
 
-my_model = model.UNet(out_dim, do_output_sigmoid=True, do_layernorm=True).to(dev)
+my_model = model.DeepResUnet(out_dim, 6, do_output_sigmoid=True, do_layernorm=True, do_residual=True).to(dev)
+# my_model = model.UNet(out_dim, do_output_sigmoid=True, do_layernorm=True).to(dev)
 # my_model = model.MultiScale(model.UNet, scales, do_output_sigmoid=True, do_layernorm=True).to(dev)
 is_nonstandard_model = False
 
@@ -136,7 +137,6 @@ def main(log_wandb):
                               for wd in PARAMS_DICT["weight_decay"]:
                                    for lr in PARAMS_DICT["learning_rates"]:      
                                         count += 1
-                                        if count == 1: continue
 
                                         args = (optimiser,
                                              {"lr" : lr,
