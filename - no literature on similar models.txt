@@ -1,0 +1,13 @@
+- no literature on similar models
+- often found papers on deblurring which I took ideas from
+
+- tried our own 3d prints of "spiders" but it was difficult to tell if errors were systematic and the errors were extremely small (would take very long to train on 1024x1024 images) so went back to chinese characters
+
+- augmentation prevented overfitting
+- layernorm provided stability to use higher learning rates
+- dropout2D reduced performance
+- 
+
+ML on chinese chars:
+- pick architecture using synthetic dataset
+- optimise architecture by trying layernorm, batchnorm, dropout, 
