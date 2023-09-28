@@ -86,10 +86,10 @@ def train(model, loss_function, optimiser, train_dl, valid_dl, epochs, batch_siz
                     # plt.show()
 
         valid_losses.append(valid_loss / len(valid_dl))
+        print(f"Epoch: {epoch}, train loss: {train_losses[-1]}, valid loss: {valid_losses[-1]}")
         if log_standard_loss:
             standard_valid_mse_losses.append(standard_valid_mse_loss / len(valid_dl))
-
-        print(f"Epoch: {epoch}, train loss: {train_losses[-1]}, valid loss: {valid_losses[-1]}")
+            print(f"mse train loss: {standard_train_mse_losses[-1]}, mse valid_loss: {standard_valid_mse_losses[-1]}")
 
         if log_wandb:
             print("Logging wandb")
