@@ -6,7 +6,7 @@ The only argument is whether or not to record training information on Weights&Bi
 > python .\experiment.py True
 This will run the experiments with Weights&Biases recording enabled.
 
-This file does one run for every posssible combination of parameters in PARAMS_DICT and saves the trained parameters in params_dir."""
+This file does one run for every posssible combination of parameters in PARAMS_DICT and saves the trained parameters in folder params_folder."""
 
 import torch
 from torch.utils.data import DataLoader
@@ -45,7 +45,7 @@ TRANSFORMS = {
 def run(optimiser_name, optimiser_args, loss_function_name, batch_size, epochs, transform_name, do_batchnorm, do_layernorm, clip_value, log_wandb, log_period, wrap_func, pin_memory=True):
      """Runs the training for the given set of parameters. Initialises a new model & model parameters each time this is called."""
 
-     # set train dataset's trasnform and create dataloaders
+     # set train dataset's transform and create dataloaders
      train_ds.transform = TRANSFORMS[transform_name]
      train_dl = dataloader.WrappedDataLoader(DataLoader(train_ds, batch_size=batch_size, shuffle=True, pin_memory=pin_memory), func=wrap_func)
      valid_dl = dataloader.WrappedDataLoader(DataLoader(valid_ds, batch_size=batch_size, shuffle=True, pin_memory=pin_memory), func=wrap_func)
@@ -53,13 +53,16 @@ def run(optimiser_name, optimiser_args, loss_function_name, batch_size, epochs, 
      # Whether you need a sigmoid at the model output depends on if your error function already contains some form of normalisation. BCE and MSE do not, so use do_output_sigmoid should be True for these.
      my_model = model.UNet(out_dim, do_output_sigmoid=True, do_layernorm=True, do_batchnorm=do_batchnorm).to(dev)
      # my_model = model.DeepResUnet(out_dim, 6, do_output_sigmoid=True, do_layernorm=do_layernorm, do_batchnorm=do_batchnorm, do_residual=True).to(dev)
-     # my_model = model.MultiScale(model.UNet, scales, do_output_sigmoid=True, do_layernorm=True).to(dev)
+     # my_model = model.MultiScale(model.UNet, scales=(32,128), do_output_sigmoid=True, do_layernorm=True).to(dev)
 
-     # NOTE TO SELF: ADD TRY EXCEPT TO TORCHSUMMARY
-     print(torchinfo.summary(my_model.to(torch.device("cpu")), input_size=(batch_size, 1, out_dim, out_dim)))
+     try:
+          print(torchinfo.summary(my_model.to(torch.device("cpu")), input_size=(batch_size, 1, out_dim, out_dim)))
+     except RuntimeError:
+          print("Not printing model summary; torchinfo failed (RuntimeError).")
      optimiser = OPTIMISERS[optimiser_name](my_model.parameters(), **optimiser_args)
      loss_function = LOSS_FUNCTIONS[loss_function_name]
 
+     # current time in string form to use in trained parameters filename and to save to Weights&Biases
      start_time = time.strftime('%Y%m%d-%H%M%S')
      # initialise Weights&Biases
      if log_wandb: wandb.init(
@@ -92,15 +95,15 @@ def run(optimiser_name, optimiser_args, loss_function_name, batch_size, epochs, 
           log_freq = 1,
      )
 
-     # train mode, save its trained parameters, and finish Weights&Biases
+     # train model, save its trained parameters, and finish Weights&Biases
      train.train(my_model, loss_function, optimiser, train_dl, valid_dl, epochs, batch_size, dev, show_plot=False, log_wandb=log_wandb, clip_value=clip_value, log_period=log_period, log_standard_loss=True)
-     torch.save(my_model.state_dict(), os.path.join(params_dir, f"{start_time}.torchparams"))
+     torch.save(my_model.state_dict(), os.path.join(params_folder, f"{start_time}.torchparams"))
      if log_wandb: wandb.finish()
 
 # Tolder to save the parameters of the model after training. They are saved as {time at start of training}.torchparams so there is no fear of overwriting.
 # This time is also saved in the Weights&Biases log.
-params_dir = r"E:\greg\Chinese Characters\3D Printed Deformations\trained_params"
-assert os.path.isdir(params_dir), f"Parameters folder does not exist at {params_dir}"
+params_folder = r"E:\greg\Chinese Characters\3D Printed Deformations\trained_params"
+assert os.path.isdir(params_folder), f"Parameters folder does not exist at {params_folder}"
 
 # Fixed Parameters
 optimiser = "Adam"

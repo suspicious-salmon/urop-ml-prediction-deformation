@@ -10,14 +10,16 @@ sigmoid = nn.Sigmoid()
 # UNet model
 
 class UNet(nn.Module):
-    def __init__(self, in_dim, output_upscale_factor=1, n_input_channels=1, do_output_sigmoid=True, do_batchnorm=False, do_layernorm=False):
+    def __init__(self, in_dim: int, output_upscale_factor=1, n_input_channels=1, do_output_sigmoid=True, do_batchnorm=False, do_layernorm=False):
         """Ivan's UNet model. Inputs and returns shape (batch_size, n_input_channels, in_dim, in_dim)
 
         Args:
-            in_dim (int): Shape of square images being input into the model. For example, if tensors of shape (16,1,256,256) are input, in_dim should be 256.
-            do_output_sigmoid (bool, optional): Whether to apply sigmoid function to model's output. Should be used with binary cross-entropy and mean square error loss functions, among others. Defaults to True.
-            do_batchnorm (bool, optional): Whether to use batch normalisation. If True, it applies to the output of every convolution but the last. Defaults to False.
-            do_layernorm (bool, optional): Whether to use layer normalisation. If True, it applies to the output of every convolution but the last. Defaults to False.
+            - `in_dim`: Shape of square images being input into the model. For example, if tensors of shape (16,1,256,256) are input, in_dim should be 256.
+            - `output_upscale_factor`: Factor to scale up resolution (side length) of image by before final output sigmoid. Useful in a MultiScaleNN.
+            - `n_input_channels`: Number of input channels N where shape of input is (*,N,*,*).
+            - `do_output_sigmoid`: Whether to apply sigmoid function to model's output. Should be used with binary cross-entropy and mean square error loss functions, among others.
+            - `do_batchnorm`: Whether to use batch normalisation. If True, it is applied just before every relu in encoder and just after in decoder.
+            - `do_layernorm`: Whether to use layer normalisation. If True, it is applied just before every relu in encoder and just after in decoder.
         """
 
         print("WARNING!: Currently the network shares batchnorms between corresponding encoder and decoder layers. Should add separate batchnorms to decoder layers to stop sharing of trainable parameters.")
@@ -31,9 +33,6 @@ class UNet(nn.Module):
         do_bias = not (do_batchnorm or do_layernorm)
 
         # Encoder
-        # In the encoder, convolutional layers with the Conv2d function are used to extract features from the input image. 
-        # Each block in the encoder consists of two convolutional layers followed by a max-pooling layer, with the exception of the last block which does not include a max-pooling layer.
-        # -------
         self.e11 = nn.Conv2d(n_input_channels, 64, kernel_size=3, padding=1, bias=True) # output: [N, 64, H, W]
         self.e12 = nn.Conv2d(64, 64, kernel_size=3, padding=1, bias=do_batchnorm) # output: [N, 64, H, W]
         self.bn1 = nn.BatchNorm2d(64)
@@ -82,11 +81,11 @@ class UNet(nn.Module):
 
         # Output layer
         self.outconv = nn.Conv2d(64, 1, kernel_size=1)
+        # Scale up output using deconvolution to next scale (used when part of MultiscaleNN architecture).
         if self.output_upscale_factor > 1: self.output_upscale = nn.ConvTranspose2d(1, 1, kernel_size=output_upscale_factor, stride=output_upscale_factor)
 
     def forward(self, x):
         # Encoder
-
         xe11 = self.e11(x)
         if self.do_batchnorm: xe11 = self.bn1(xe11)
         elif self.do_layernorm: xe11 = self.ln1(xe11)
@@ -137,7 +136,6 @@ class UNet(nn.Module):
         encoded = relu(xe52)
 
         # Decoder
-
         xu1 = self.upconv1(encoded)
         xu11 = torch.cat([xu1, xe42], dim=1)
         xd11 = relu(self.d11(xu11))
@@ -183,20 +181,20 @@ class UNet(nn.Module):
 # ----------------------------
 
 # ----------------------------
-# DeepResUnet
+# DeepResUnet Model
 
 class ResBlock(nn.Module):
-    def __init__(self, in_dim, n_input_channels=1, n_output_channels=1, do_batchnorm=False, do_layernorm=False, do_residual=True, act=nn.ReLU()):
-        """A block with 2 convolutions and an optional sum residual, used in my DeepResUnet model. Inputs shape (batch_size, n_input_channels, in_dim, in_dim) and outputs shape (batch_size, n_output_channels, in_dim, in_dim)
+    def __init__(self, in_dim: int, n_input_channels=1, n_output_channels=1, do_batchnorm=False, do_layernorm=False, do_residual=True, act=nn.ReLU()):
+        """A block with 2 convolutions and an optional sum residual. Inputs shape (batch_size, n_input_channels, in_dim, in_dim) and outputs shape (batch_size, n_output_channels, in_dim, in_dim)
 
         Args:
-            in_dim (int): Shape of square images being input into the model. For example, if tensors of shape (16,1,256,256) are input, in_dim should be 256.
-            n_input_channels (int, optional): Number of input channels N, where the shape of the input is (*,N,*,*).
-            n_output_channels (int, optional): Number of output channels O, where the shape of the output is (*,O,*,*). If O != N, the dimension change is applied in the first convolution of the ResBlock.
-            do_batchnorm (bool, optional): Whether to use batch normalisation. If True, it is applied before both convolutions. Defaults to False.
-            do_layernorm (bool, optional): Whether to use layer normalisation. If True, it is applied before both convolutions. Defaults to False.
-            do_residual (bool, optional): Whether to do residual addition in this block (add residual to the output). Defaults to True.
-            act (function, optional): The activation function to use. Applied after normalisation and before convolution. Defaults to torch.nn.ReLU().
+            - `in_dim`: Shape of square images input into the block. For example, if tensors of shape (16,1,256,256) are input, in_dim should be 256.
+            - `n_input_channels`: Number of input channels N, where the shape of the input is (*,N,*,*).
+            - `n_output_channels`: Number of output channels O, where the shape of the output is (*,O,*,*). If O != N, the dimension change is applied in the first convolution of the ResBlock.
+            - `do_batchnorm`: Whether to use batch normalisation. If True, it is applied before both convolutions.
+            - `do_layernorm`: Whether to use layer normalisation. If True, it is applied before both convolutions.
+            - `do_residual`: Whether to do residual addition in this block (add residual to the output).
+            - `act`: The activation function to use. Applied after normalisation and before convolution.
         """
 
         super().__init__()
@@ -222,21 +220,28 @@ class ResBlock(nn.Module):
         if self.do_batchnorm: e1 = self.bn2(e1)
         elif self.do_layernorm: e1 = self.ln2(e1)
         e2 = self.conv2(self.act(e1))
-        # print(e2.shape, add_x.shape)
         if self.do_residual: e2 += add_x
 
         return e2
     
 class DownResBlock(nn.Module):
-    """Wraps ResBlock class.
+    def __init__(self, in_dim: int, n_input_channels=1, do_batchnorm=False, do_layernorm=False, do_residual=True, act=nn.ReLU(), do_pool=True):
+        """Wraps ResBlock class, optionally pre-pending it with a MaxPool2d.
+        The shape of the input is (*,N,D,D) and the shape of the output is
+        - (*,N,D//2,D//2) if `do_pool` is True
+        - (*,N,D,D) otherwise
 
         Args:
-            
+            - `in_dim`: Shape of square images input into the block. For example, if tensors of shape (16,1,256,256) are input, in_dim should be 256.
+            - `n_input_channels`: Number of input channels N, where the shape of the input is (*,N,*,*).
+            - `do_batchnorm`: Whether to use batch normalisation. If True, it is applied before both convolutions.
+            - `do_layernorm`: Whether to use layer normalisation. If True, it is applied before both convolutions.
+            - `do_residual`: Whether to do residual addition in this block (add residual to the output).
+            - `act`: The activation function to use. Applied after normalisation and before convolution.
+            - `do_pool`: Whether to apply max pooling before the ResBlock.
         """
-    
-    def __init__(self, in_dim, n_input_channels=1, do_batchnorm=False, do_layernorm=False, do_residual=True, act=nn.ReLU(), do_pool=True):
+
         super().__init__()
-        # print("Down: ", in_dim//2 if do_pool else in_dim)
         self.resblock = ResBlock(in_dim//2 if do_pool else in_dim, n_input_channels, n_input_channels, do_batchnorm, do_layernorm, do_residual, act)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.do_pool = do_pool
@@ -247,7 +252,22 @@ class DownResBlock(nn.Module):
         return e
     
 class UpResBlock(nn.Module):
-    def __init__(self, in_dim, n_input_channels=1, do_batchnorm=False, do_layernorm=False, do_residual=True, act=nn.ReLU(), do_upconv=True):
+    def __init__(self, in_dim: int, n_input_channels=1, do_batchnorm=False, do_layernorm=False, do_residual=True, act=nn.ReLU(), do_upconv=True):
+        """Wraps ResBlock class with an initial upconvolution and concatenation with corresponding-image-scale skip connection.
+        The shape of the input is (*,N,D,D) and the shape of the output is
+        - (*,N,2D,2D) if `do_pool` is True
+        - (*,N,D,D) otherwise
+
+        Args:
+            - `in_dim`: Shape of square images input into the block. For example, if tensors of shape (16,1,256,256) are input, in_dim should be 256.
+            - `n_input_channels`: Number of input channels N, where the shape of the input is (*,N,*,*).
+            - `do_batchnorm`: Whether to use batch normalisation. If True, it is applied before both convolutions.
+            - `do_layernorm`: Whether to use layer normalisation. If True, it is applied before both convolutions.
+            - `do_residual`: Whether to do residual addition in this block (add residual to the output).
+            - `act`: The activation function to use. Applied after normalisation and before convolution.
+            - `do_upconv`: Whether to apply upconvolution before the ResBlock and concatenation steps.
+        """
+
         super().__init__()
         do_bias = not (do_batchnorm or do_layernorm)
 
@@ -263,14 +283,19 @@ class UpResBlock(nn.Module):
         return e
 
 class DeepResUnet(nn.Module):
-    def __init__(self, in_dim, n_encode_blocks, output_upscale_factor=1, n_input_channels=1, do_output_sigmoid=True, do_batchnorm=False, do_layernorm=False, do_residual=True, act=nn.ReLU()):
-        """My DeepResUnet model. Inputs and returns shape (batch_size, n_input_channels, in_dim, in_dim)
+    def __init__(self, in_dim: int, n_encode_blocks: int, output_upscale_factor=1, n_input_channels=1, do_output_sigmoid=True, do_batchnorm=False, do_layernorm=False, do_residual=True, act=nn.ReLU()):
+        """My DeepResUnet model (see diagram in documentation). Inputs and returns shape (batch_size, n_input_channels, in_dim, in_dim)
 
         Args:
-            in_dim (int): Shape of square images being input into the model. For example, if tensors of shape (1,1,256,256) are input, in_dim should be 256.
-            do_output_sigmoid (bool, optional): Defaults to True.
-            do_batchnorm (bool, optional): Defaults to False.
-            do_layernorm (bool, optional): Defaults to False.
+            - `in_dim`: Shape of square images input into the model. For example, if tensors of shape (16,1,256,256) are input, in_dim should be 256.
+            - `n_encode_blocks`: Number of DownResBlocks in encoder, also number of UpResBlocks in decoder.
+            - `output_upscale_factor (int, optional)`: _description_. Defaults to 1.
+            - `n_input_channels`: Number of input channels N, where the shape of the input is (*,N,*,*).
+            - `do_output_sigmoid`: Whether to apply sigmoid function to model's output. Should be used with binary cross-entropy and mean square error loss functions, among others.
+            - `do_batchnorm`: Whether to use batch normalisation in the model.
+            - `do_layernorm`: Whether to use layer normalisation in the model.
+            - `do_residual`: Whether to use residual addition in each ResBlock.
+            - `act`: The activation function to use.
         """
 
         super().__init__()
