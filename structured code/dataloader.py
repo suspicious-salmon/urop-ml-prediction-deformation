@@ -9,6 +9,7 @@ import utility as u
 
 class WrappedDataLoader:
     def __init__(self, dl, func):
+        """This class wraps a post_processing function `func` around dataloader `dl`, as in https://pytorch.org/tutorials/beginner/nn_tutorial.html"""
         self.dl = dl
         self.func = func
 
@@ -20,19 +21,25 @@ class WrappedDataLoader:
             yield (self.func(*b))
 
 class DeformedDataset(VisionDataset):
+    """This class acts as the dataset loader for both the Chinese Characters dataset and my synthetic Stroke dataset, and can be used for any dataset using grayscale square images for both features and labels.
+
+    The constructor loads all the images in the dataset before training begins
+    to improve efficiency. The only operations carried out during train-time (in __getitem__) are just-in-time augmentation using `self.transform`, normalisation to intensities 0-1,
+    conversion from numpy array to pytorch tensor and a reshape to return (1,width,height) for both feature and label.
+
+    __init__(Args):
+        feature_root (directory string): Folder where *grasycale* feature images are located. Must contain *only* those feature images.
+        label_root (directory string): Folder where *grayscale* label images are located. Must contain *only* those label images.
+        in_dim (int): Side dimension of square images as they are read from feature_root and label_root
+        out_dim (int): Side dimension of images to be resized to in __init__
+        crop_amount (int, optional): How much to crop the images (before they are resized). Defaults to 0.
+        transform (function, optional): Transformation to be applied identically to each feature & label pair. Must accept image tuple (feature, label) as first argument. Will be applied in a just-in-time manner, i.e. when they are fetched from __getitem__. If None, no transformation will be applied. Defaults to None.
+    """
+    
     def __init__(self, feature_root, label_root, in_dim, out_dim, crop_amount=0, transform=None):
         super().__init__(None, transform=transform)
 
-        # if preset == "chinese characters":
-        #     in_dim = (2460, 2460)
-        #     crop_amount = 250
-        # elif preset == "spiders":
-        #     in_dim = (2033,2033)
-        #     crop_amount = 0
-        # elif preset == "f1":
-        #     in_dim = (225,225)
-        #     crop_amount = 0
-
+        # iterate through feature_root and label_root folders, and fill self.features and self.labels respectively with the cropped & rescaled images in those folders.
         print("Loading dataset into memory...")
         feature_names = [file.name for file in os.scandir(feature_root)]
         label_names = [file.name for file in os.scandir(label_root)]
@@ -50,6 +57,7 @@ class DeformedDataset(VisionDataset):
             feature = cv2.resize(feature, (out_dim, out_dim), interpolation=cv2.INTER_NEAREST)
             label = cv2.resize(label, (out_dim, out_dim), interpolation=cv2.INTER_NEAREST)
 
+            # option to train on the shape outlines instead
             # feature = cv2.Canny(feature, 100, 200)
             # label = cv2.Canny(label, 100, 200)
 
@@ -70,30 +78,22 @@ class DeformedDataset(VisionDataset):
         if self.transform is not None:
             feature, label = self.transform((feature, label))
 
-        # if index == self.length*self.length_sf-1:
-        #     plt.subplot(131), plt.imshow(feature, cmap="gray")
-        #     plt.subplot(132), plt.imshow(label, cmap="gray")
-        #     plt.subplot(133), plt.hist(feature.flatten(), bins=20), plt.hist(label.flatten(), bins=20)
-        #     plt.gcf().suptitle("Final input to neural network: feature; label; histogram")
-        #     plt.show()
-
+        # normalise to 0-1 intensity, convert from numpy array to pytorch tensor, reshape to (1,width,height) for both feature & label.
+        # this means feature and label batches will have shape (batch_size, 1, width, height).
         return torch.from_numpy(feature.astype(np.float32)/255).unsqueeze(0), torch.from_numpy(label.astype(np.float32)/255).unsqueeze(0)
-
+    
 class PyramidDataset(VisionDataset):
+    """This was to be used with the Multiscale UNet model but I did not get along to testing that model fully.
+
+    Takes the similar arguments to DeformedDataset and behaves the same way; except after the crop, each feature & label is subsampled to all the
+    dimensions provided in `scales`. For example, a 1024x1024 image with `scales`=(64,128) would return a feature and label that are each a
+    list of two pytorch tensors of shape [(1,64,64),(1,128,128)] from __getitem__.
+    """
+    
     def __init__(self, feature_root, label_root, scales, in_dim, crop_amount=0, transform=None):
         super().__init__(None, transform=transform)
 
         scales = sorted(scales) # put scales in ascending order
-
-        # if preset == "chinese characters":
-        #     in_dim = (2460, 2460)
-        #     crop_amount = 250
-        # elif preset == "spiders":
-        #     in_dim = (2033,2033)
-        #     crop_amount = 0
-        # elif preset == "f1":
-        #     in_dim = (225,225)
-        #     crop_amount = 0
 
         print("Loading dataset into memory...")
         feature_names = [file.name for file in os.scandir(feature_root)]
@@ -135,17 +135,19 @@ class PyramidDataset(VisionDataset):
         feature_pyramid = self.feature_pyramids[index]
         label_pyramid = self.label_pyramids[index]
 
+        # apply self.transform. An identical transformation is applied to all images in the feature & label pyramids of a single __getitem__ call.
         if self.transform is not None:
             ret = self.transform(feature_pyramid + label_pyramid)
             feature_pyramid = ret[:len(feature_pyramid)]
             label_pyramid = ret[len(feature_pyramid):]
 
-        # convert from numpy 0-255 grayscale to torch 0-1 tensor. also reverse, since model takes in ascending image size order.
         feature_pyramid = [torch.from_numpy(f.astype(np.float32)/255).unsqueeze(0) for f in feature_pyramid]
         label_pyramid = [torch.from_numpy(l.astype(np.float32)/255).unsqueeze(0) for l in label_pyramid]
 
         return feature_pyramid, label_pyramid[-1]
     
+## DELETE BELOW HERE
+
 class RandomNoise(VisionDataset):
     def __init__(self):
         super().__init__(None)
