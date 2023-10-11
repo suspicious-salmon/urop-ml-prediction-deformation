@@ -17,7 +17,7 @@ import time
 import sys
 
 import train, dataloader, augment
-import model
+from models import unet, deep_res_unet, multi_scale
 
 # Use the graphics card for training if one is available; if not use CPU
 if torch.cuda.is_available():
@@ -51,9 +51,9 @@ def run(optimiser_name, optimiser_args, loss_function_name, batch_size, epochs, 
      valid_dl = dataloader.WrappedDataLoader(DataLoader(valid_ds, batch_size=batch_size, shuffle=True, pin_memory=pin_memory), func=wrap_func)
 
      # Whether you need a sigmoid at the model output depends on if your error function already contains some form of normalisation. BCE and MSE do not, so use do_output_sigmoid should be True for these.
-     my_model = model.UNet(out_dim, do_output_sigmoid=True, do_layernorm=True, do_batchnorm=do_batchnorm).to(dev)
-     # my_model = model.DeepResUnet(out_dim, 6, do_output_sigmoid=True, do_layernorm=do_layernorm, do_batchnorm=do_batchnorm, do_residual=True).to(dev)
-     # my_model = model.MultiScale(model.UNet, scales=(32,128), do_output_sigmoid=True, do_layernorm=True).to(dev)
+     my_model = unet.UNet(out_dim, do_output_sigmoid=True, do_layernorm=True, do_batchnorm=do_batchnorm).to(dev)
+     # my_model = deep_res_unet.DeepResUnet(out_dim, 6, do_output_sigmoid=True, do_layernorm=do_layernorm, do_batchnorm=do_batchnorm, do_residual=True).to(dev)
+     # my_model = multi_scale.MultiScale(model.UNet, scales=(32,128), do_output_sigmoid=True, do_layernorm=True).to(dev)
 
      try:
           print(torchinfo.summary(my_model.to(torch.device("cpu")), input_size=(batch_size, 1, out_dim, out_dim)))
