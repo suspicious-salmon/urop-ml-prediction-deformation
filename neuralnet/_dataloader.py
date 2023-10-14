@@ -5,7 +5,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-import utility as u
+import neuralnet._cvutil as u
 
 class WrappedDataLoader:
     def __init__(self, dl, func):

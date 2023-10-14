@@ -16,8 +16,9 @@ import os
 import time
 import sys
 
-import train, dataloader, augment
-from models import unet, deep_res_unet, multi_scale
+import neuralnet._train as _train, neuralnet._dataloader as _dataloader, neuralnet._augment as _augment
+from neuralnet.models import _unet
+from neuralnet.models import _deep_res_unet, _multi_scale
 
 # Use the graphics card for training if one is available; if not use CPU
 if torch.cuda.is_available():
@@ -39,7 +40,7 @@ LOSS_FUNCTIONS = {
 
 TRANSFORMS = {
     "None" : None,
-    "RandomRotateFlip" : augment.deform1,
+    "RandomRotateFlip" : _augment.deform1,
 }
 
 def run(optimiser_name, optimiser_args, loss_function_name, batch_size, epochs, transform_name, do_batchnorm, do_layernorm, clip_value, log_wandb, log_period, wrap_func, pin_memory=True):
@@ -47,11 +48,11 @@ def run(optimiser_name, optimiser_args, loss_function_name, batch_size, epochs, 
 
      # set train dataset's transform and create dataloaders
      train_ds.transform = TRANSFORMS[transform_name]
-     train_dl = dataloader.WrappedDataLoader(DataLoader(train_ds, batch_size=batch_size, shuffle=True, pin_memory=pin_memory), func=wrap_func)
-     valid_dl = dataloader.WrappedDataLoader(DataLoader(valid_ds, batch_size=batch_size, shuffle=True, pin_memory=pin_memory), func=wrap_func)
+     train_dl = _dataloader.WrappedDataLoader(DataLoader(train_ds, batch_size=batch_size, shuffle=True, pin_memory=pin_memory), func=wrap_func)
+     valid_dl = _dataloader.WrappedDataLoader(DataLoader(valid_ds, batch_size=batch_size, shuffle=True, pin_memory=pin_memory), func=wrap_func)
 
      # Whether you need a sigmoid at the model output depends on if your error function already contains some form of normalisation. BCE and MSE do not, so use do_output_sigmoid should be True for these.
-     my_model = unet.UNet(out_dim, do_output_sigmoid=True, do_layernorm=True, do_batchnorm=do_batchnorm).to(dev)
+     my_model = _unet.UNet(out_dim, do_output_sigmoid=True, do_layernorm=True, do_batchnorm=do_batchnorm).to(dev)
      # my_model = deep_res_unet.DeepResUnet(out_dim, 6, do_output_sigmoid=True, do_layernorm=do_layernorm, do_batchnorm=do_batchnorm, do_residual=True).to(dev)
      # my_model = multi_scale.MultiScale(model.UNet, scales=(32,128), do_output_sigmoid=True, do_layernorm=True).to(dev)
 
@@ -96,7 +97,7 @@ def run(optimiser_name, optimiser_args, loss_function_name, batch_size, epochs, 
      )
 
      # train model, save its trained parameters, and finish Weights&Biases
-     train.train(my_model, loss_function, optimiser, train_dl, valid_dl, epochs, batch_size, dev, show_plot=False, log_wandb=log_wandb, clip_value=clip_value, log_period=log_period, log_standard_loss=True)
+     _train.train(my_model, loss_function, optimiser, train_dl, valid_dl, epochs, batch_size, dev, show_plot=False, log_wandb=log_wandb, clip_value=clip_value, log_period=log_period, log_standard_loss=True)
      torch.save(my_model.state_dict(), os.path.join(params_folder, f"{start_time}.torchparams"))
      if log_wandb: wandb.finish()
 
@@ -139,8 +140,8 @@ crop_amount = 0
 # train_ds = dataloader.MemoriseShape(onedir, onedir, out_dim)
 # valid_ds = dataloader.MemoriseShape(onedir, onedir, out_dim)
 ds_dir = r"E:\greg\Chinese Characters\3D Printed Deformations\MLDataset"
-train_ds = dataloader.DeformedDataset(os.path.join(ds_dir, "Train", "Features"), os.path.join(ds_dir, "Train", "Labels"), in_dim, out_dim)
-valid_ds = dataloader.DeformedDataset(os.path.join(ds_dir, "Test", "Features"), os.path.join(ds_dir, "Test", "Labels"), in_dim, out_dim)
+train_ds = _dataloader.DeformedDataset(os.path.join(ds_dir, "Train", "Features"), os.path.join(ds_dir, "Train", "Labels"), in_dim, out_dim)
+valid_ds = _dataloader.DeformedDataset(os.path.join(ds_dir, "Test", "Features"), os.path.join(ds_dir, "Test", "Labels"), in_dim, out_dim)
 
 # Wrapper functions to send the batch tensors to the right device (gpu or cpu). Use wrap_func for all but the Multiscale UNet. For the Multiscale UNet, use wrap_func_pyramid.
 def wrap_func_pyramid(x, y):
