@@ -16,9 +16,9 @@ import os
 import time
 import sys
 
-import neuralnet._train as _train, neuralnet._dataloader as _dataloader, neuralnet._augment as _augment
-from neuralnet.models import _unet
-from neuralnet.models import _deep_res_unet, _multi_scale
+import _train as _train, _dataloader as _dataloader, _augment as _augment
+from models import _unet
+from models import _deep_res_unet, _multi_scale
 
 # Use the graphics card for training if one is available; if not use CPU
 if torch.cuda.is_available():
@@ -47,6 +47,7 @@ def run(optimiser_name, optimiser_args, loss_function_name, batch_size, epochs, 
      """Runs the training for the given set of parameters. Initialises a new model & model parameters each time this is called."""
 
      # set train dataset's transform and create dataloaders
+     # pin_memory=True improves performance but can cause out of memory exceptions
      train_ds.transform = TRANSFORMS[transform_name]
      train_dl = _dataloader.WrappedDataLoader(DataLoader(train_ds, batch_size=batch_size, shuffle=True, pin_memory=pin_memory), func=wrap_func)
      valid_dl = _dataloader.WrappedDataLoader(DataLoader(valid_ds, batch_size=batch_size, shuffle=True, pin_memory=pin_memory), func=wrap_func)
