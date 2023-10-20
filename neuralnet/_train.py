@@ -13,7 +13,8 @@ def normalise(img):
 
 cpu = torch.device("cpu")
 
-def train(model: torch.nn.Module, loss_function: function, optimiser: torch.optim.optimizer, train_dl: DataLoader, valid_dl: DataLoader, epochs: int, batch_size: int, dev: torch.device,
+def train(model: torch.nn.Module, loss_function: function, optimiser: torch.optim.optimizer,
+          train_dl: DataLoader, valid_dl: DataLoader, epochs: int, batch_size: int, dev: torch.device,
           show_plot=False, log_wandb=True, log_standard_loss=False, clip_value=None):
     """Train model for given number of epochs.
 

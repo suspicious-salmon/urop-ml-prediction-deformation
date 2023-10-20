@@ -6,7 +6,7 @@ import cv2
 import random
 import math
 
-def _pad_around_centre(image, target_width, target_heigh, pad_value=0):
+def _pad_around_centre(image, target_width, target_height, pad_value=0):
     """Pads image with equal amount of pixels on top & bottom and on left & right."""
     pad_vertical = target_height-image.shape[0]
     pad_horizontal = target_width-image.shape[1]
@@ -74,5 +74,14 @@ def deform1(in_images, background_value=0):
 
     images = _random_flip(in_images)
     images = _random_rotate(in_images, (-180,180), flags=cv2.INTER_NEAREST, fill=background_value)
+
+    return images
+
+def deform2(images, background_value=0):
+    """Applies a random rotation, bernoulli-random-variable-determined flip and scaling between 0.7-1.1, identically to all images in in_images."""
+
+    images = _random_flip(images)
+    images = _random_rotate(images, (-180,180), flags=cv2.INTER_NEAREST, fill=background_value)
+    images = _random_scale(images, (0.7,1.1), fill=background_value)
 
     return images

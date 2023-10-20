@@ -41,9 +41,10 @@ LOSS_FUNCTIONS = {
 TRANSFORMS = {
     "None" : None,
     "RandomRotateFlip" : _augment.deform1,
+    "RandomRotateFlipScale" : _augment.deform2,
 }
 
-def run(optimiser_name, optimiser_args, loss_function_name, batch_size, epochs, transform_name, do_batchnorm, do_layernorm, clip_value, log_wandb, log_period, wrap_func, pin_memory=True):
+def run(optimiser_name, optimiser_args, loss_function_name, batch_size, epochs, transform_name, do_batchnorm, do_layernorm, clip_value, log_wandb, wrap_func, pin_memory=True):
      """Runs the training for the given set of parameters. Initialises a new model & model parameters each time this is called."""
 
      # set train dataset's transform and create dataloaders
@@ -69,12 +70,12 @@ def run(optimiser_name, optimiser_args, loss_function_name, batch_size, epochs, 
      # initialise Weights&Biases
      if log_wandb: wandb.init(
           # set the wandb project where this run will be logged
-          project="Strokes 2",
+          project="Chinese Characters",
 
           # track hyperparameters and metadata
           config={
-               "architecture": "DeepresUNet with layernorm",
-               "dataset": "Strokes 1000",
+               "architecture": "DeepresUNet with Layernorm",
+               "dataset": "Chinese Characters",
                "img_dimensions" : out_dim,
                "optimiser" : optimiser_name,
                **optimiser_args,
@@ -98,7 +99,7 @@ def run(optimiser_name, optimiser_args, loss_function_name, batch_size, epochs, 
      )
 
      # train model, save its trained parameters, and finish Weights&Biases
-     _train.train(my_model, loss_function, optimiser, train_dl, valid_dl, epochs, batch_size, dev, show_plot=False, log_wandb=log_wandb, clip_value=clip_value, log_period=log_period, log_standard_loss=True)
+     _train.train(my_model, loss_function, optimiser, train_dl, valid_dl, epochs, batch_size, dev, show_plot=False, log_wandb=log_wandb, clip_value=clip_value, log_standard_loss=True)
      torch.save(my_model.state_dict(), os.path.join(params_folder, f"{start_time}.torchparams"))
      if log_wandb: wandb.finish()
 
@@ -118,7 +119,7 @@ PARAMS_DICT = {
     "learning_rates" : [0.003, 0.0003],
     "betas" : [(0.9, 0.999)],
     "weight_decay" : [0],
-    "transforms" : ["RandomRotateFlip"],
+    "transforms" : ["RandomRotateFlipScale"],
     "batch_size" : [32, 8],
     "do_batchnorm" : [False],
     "do_layernorm" : [True],
@@ -127,22 +128,17 @@ PARAMS_DICT = {
 # Parameters for the dataset, load the dataset
 in_dim = 2460
 out_dim = 128
-crop_amount = 0
-# train_ds = dataloader.DeformedDataset(os.path.join(dataset_dir, "Train", "Features"), os.path.join(dataset_dir, "Train", "Labels"),
-#                                       in_dim, out_dim)
-# valid_ds = dataloader.DeformedDataset(os.path.join(dataset_dir, "Test", "Features"), os.path.join(dataset_dir, "Test", "Labels"),
-#                                       in_dim, out_dim)
-# scales = (64, 32)
-# train_feature_dir = r"C:\Users\gregk\Documents\MyDocuments\Brogramming & Electronics\Python\urop-structured-nn\Data\Features"
-# train_label_dir = r"C:\Users\gregk\Documents\MyDocuments\Brogramming & Electronics\Python\urop-structured-nn\Data\Labels"
-# train_ds = dataloader.PyramidDataset(train_feature_dir, train_feature_dir, scales, in_dim, crop_amount)
-# valid_ds = dataloader.PyramidDataset(train_feature_dir, train_feature_dir, scales, in_dim, crop_amount)
-# onedir=r"E:\greg\Chinese Characters\3D Printed Deformations\urop-structured-nn\Data\Features\bc.tif"
-# train_ds = dataloader.MemoriseShape(onedir, onedir, out_dim)
-# valid_ds = dataloader.MemoriseShape(onedir, onedir, out_dim)
+
+# Load Chinese Character dataset for UNet or DeepResUnet
 ds_dir = r"E:\greg\Chinese Characters\3D Printed Deformations\MLDataset"
 train_ds = _dataloader.DeformedDataset(os.path.join(ds_dir, "Train", "Features"), os.path.join(ds_dir, "Train", "Labels"), in_dim, out_dim)
 valid_ds = _dataloader.DeformedDataset(os.path.join(ds_dir, "Test", "Features"), os.path.join(ds_dir, "Test", "Labels"), in_dim, out_dim)
+
+# Load Chinese Character dataset for multi-scale nn
+# scales = (32, 128)
+# ds_dir = r"E:\greg\Chinese Characters\3D Printed Deformations\MLDataset"
+# train_ds = dataloader.PyramidDataset(os.path.join(ds_dir, "Train", "Features"), os.path.join(ds_dir, "Train", "Labels"), scales, in_dim)
+# valid_ds = dataloader.PyramidDataset(os.path.join(ds_dir, "Test", "Features"), os.path.join(ds_dir, "Test", "Labels"), scales, in_dim)
 
 # Wrapper functions to send the batch tensors to the right device (gpu or cpu). Use wrap_func for all but the Multiscale UNet. For the Multiscale UNet, use wrap_func_pyramid.
 def wrap_func_pyramid(x, y):
@@ -175,7 +171,6 @@ def main(log_wandb):
                                              do_layernorm,
                                              clip_value,
                                              log_wandb,
-                                             log_every_n_epochs,
                                              wrap_func,
                                              True)
                                         print(args)
@@ -183,5 +178,4 @@ def main(log_wandb):
                     
 if __name__ == "__main__":
     terminal_args = sys.argv[1:]
-    log_every_n_epochs = 1
     main(*terminal_args)

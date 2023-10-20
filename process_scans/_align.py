@@ -5,7 +5,7 @@ from scipy.optimize import minimize_scalar
 
 import _cvutil
 
-def align_ccorr(cad_dir, scan_dir, output_dirs, angle_bounds=(-180,180)):
+def align_ccorr(cad_dir, scan_dir, output_dirs, fill=0, angle_bounds=(-180,180)):
     """Rotates and translates (black-and-white, i.e. 0 or 255) image at directory scan_dir to match image at directory cad_dir by minimising cross-correlation. Also saves:
     - missing pixels image: after alignment, map of pixels which are white in image at cad_dir but black in image at scan_dir
     - extra pixels image: after alignment, map of pixels which are white in image at scan_dir but black in image at cad_dir
@@ -17,6 +17,7 @@ def align_ccorr(cad_dir, scan_dir, output_dirs, angle_bounds=(-180,180)):
         output_dirs (dict): output directories dictionary {"aligned" : directory string to write aligned image from scan_dir,
             "extra_pixels" : directory string to write missing pixels image,
             "missing_pixels" : directory string to write extra pixels image}
+        fill (int): intensity value to fill empty areas left after image rotation
         angle_bounds (tuple): (min angle, max angle) range of angles in degrees within which to search for minium cross-correlation. Defaults to plusminus 180 degrees.
     """
 
@@ -29,12 +30,12 @@ def align_ccorr(cad_dir, scan_dir, output_dirs, angle_bounds=(-180,180)):
 
     diameter = math.ceil(math.sqrt(cad_img.shape[0]**2 + cad_img.shape[1]**2))
 
-    cad_img_padded = np.zeros((diameter, diameter), dtype = cad_img.dtype)
+    cad_img_padded = np.full((diameter, diameter), fill_value=fill, dtype = cad_img.dtype)
     cad_shift_rows = int((cad_img_padded.shape[0] - cad_img.shape[0])/2)
     cad_shift_cols = int((cad_img_padded.shape[1] - cad_img.shape[1])/2)
     cad_img_padded[cad_shift_rows:cad_shift_rows+cad_img.shape[0], cad_shift_cols:cad_shift_cols+cad_img.shape[1]] = cad_img
 
-    scan_img_padded = np.zeros((diameter, diameter), dtype = scan_img.dtype)
+    scan_img_padded = np.full((diameter, diameter), fill_value=fill, dtype = scan_img.dtype)
     scan_shift_rows = int((scan_img_padded.shape[0] - scan_img.shape[0])/2)
     scan_shift_cols = int((scan_img_padded.shape[1] - scan_img.shape[1])/2)
     scan_img_padded[scan_shift_rows:scan_shift_rows+scan_img.shape[0], scan_shift_cols:scan_shift_cols+scan_img.shape[1]] = scan_img
@@ -45,7 +46,7 @@ def align_ccorr(cad_dir, scan_dir, output_dirs, angle_bounds=(-180,180)):
         # rotate cad_img_padded by rot degrees
         rows, cols = scan_img_padded.shape
         M = cv2.getRotationMatrix2D(center=((cols-1)/2.0,(rows-1)/2.0), angle=rot, scale=1)
-        im_rot = cv2.warpAffine(scan_img_padded, M, dsize=(cols,rows))
+        im_rot = cv2.warpAffine(scan_img_padded, M, dsize=(cols,rows), borderMode=cv2.BORDER_CONSTANT, borderValue=fill)
         # crop the template
         im_rot = im_rot[scan_shift_rows:scan_shift_rows+scan_img.shape[0], scan_shift_cols:scan_shift_cols+scan_img.shape[1]]
 
@@ -60,7 +61,7 @@ def align_ccorr(cad_dir, scan_dir, output_dirs, angle_bounds=(-180,180)):
     minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(result)
     rows, cols = cad_img_padded.shape
     M = cv2.getRotationMatrix2D(((cols-1)/2.0,(rows-1)/2.0), res.x, 1)
-    scan_img_aligned = cv2.warpAffine(scan_img_padded, M, (scan_img_padded.shape[1], scan_img_padded.shape[0]))
+    scan_img_aligned = cv2.warpAffine(scan_img_padded, M, (scan_img_padded.shape[1], scan_img_padded.shape[0]), borderMode=cv2.BORDER_CONSTANT, borderValue=fill)
     scan_img_aligned = np.roll(scan_img_aligned, maxLoc[1] - scan_shift_rows, axis=0)
     scan_img_aligned = np.roll(scan_img_aligned, maxLoc[0] - scan_shift_cols, axis=1)
 
