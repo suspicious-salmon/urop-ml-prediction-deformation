@@ -1,5 +1,4 @@
-"""This file loads a file containing parameters trained in pytorch and loads them into a model. Then it iterates through the test set one by one,
-displaying the feature, label and model output (prediction of label)."""
+"""This file loads a file containing parameters trained in pytorch and loads them into a model, and displays them."""
 
 import torch
 from torch.utils.data import DataLoader
@@ -33,22 +32,27 @@ out_dir = r"C:\Users\gregk\Documents\MyDocuments\Brogramming\Python\UROP\urop-st
 
 with torch.no_grad():
      for idx, (xb, yb) in enumerate(valid_dl):
+          # Display feature
           plt.subplot(241), plt.imshow(xb[0][0], cmap="gray")
           plt.title("Feature (deformed 3d-print)")
+          # Display model output
           plt.subplot(242), plt.imshow(my_model(xb)[0][0], cmap="gray")
           plt.title("Predicted CAD image")
+          # Display thresholded model output
           plt.subplot(243), plt.imshow(cv2.threshold(my_model(xb)[0][0].detach().numpy()*255, 100, 255, cv2.THRESH_BINARY)[1], cmap="gray")
           plt.title("Prediction, thresholded")
+          # Display label
           plt.subplot(244), plt.imshow(yb[0][0], cmap="gray")
           plt.title("Label (CAD image)")
+          # Display model output when label is the input, in this case the precorrected CAD i.e. what the model recommends to send to the £D printer to get the nominal CAD at the end
           img = my_model(yb)[0][0].detach().numpy()*255
           precorrect = cv2.threshold(img, 100, 255, cv2.THRESH_BINARY)[1]
           plt.subplot(245), plt.imshow(precorrect, cmap="gray")
-          plt.title("Precorrected")
+          plt.title("Precorrected CAD")
+
+          # Show in fullscreen mode
+          figManager = plt.get_current_fig_manager()
+          figManager.window.showMaximized()
           plt.show()
 
           cv2.imwrite(os.path.join(out_dir, f"{idx}.tif"), precorrect)
-
-          # figManager = plt.get_current_fig_manager()
-          # figManager.window.showMaximized()
-          # plt.show()
