@@ -19,10 +19,6 @@ Note: The code is very similar to the code I used to process the surgical guides
 
 ### Dependencies
 
-I ran the code in Windows 11 Anaconda, using the modules contained in `environment.yml`. Also needed is pytorch and (optionally alongside Nvidia CUDA).
-
-### Quickstart
+I ran the code in Windows 11 Anaconda, using the modules contained in `environment.yml`. Also needed is pytorch (optionally alongside Nvidia CUDA).
 
 Set up the environment by, in anaconda terminal in repository folder, executing `conda env create -f environment.yml` (this might take a while to install everything). It will create an environment called my_ccml_env, or whatever you change the first line to in `environment.yml`.
-
-Now try executing `run.py` in the environment you just made - it should work.
