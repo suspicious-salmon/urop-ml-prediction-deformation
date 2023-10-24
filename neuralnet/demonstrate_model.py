@@ -1,3 +1,6 @@
+"""This file loads a file containing parameters trained in pytorch and loads them into a model. Then it iterates through the test set one by one,
+displaying the feature, label and model output (prediction of label)."""
+
 import torch
 from torch.utils.data import DataLoader
 import os
