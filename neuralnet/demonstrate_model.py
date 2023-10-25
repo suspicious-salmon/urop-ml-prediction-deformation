@@ -1,4 +1,5 @@
 """This file loads a file containing parameters trained in pytorch and loads them into a model, and displays them."""
+"""It also generates the pre-corrected images by passing the labels (i.e. the CAD images as input to the model)"""
 
 import torch
 from torch.utils.data import DataLoader
@@ -19,16 +20,16 @@ dev = torch.device("cpu")
 print("Using CPU.")
 
 # load Chinese Characters test set
-dataset_dir = r"E:\UROP\Machine Learning\Datasets\ChineseCharacterDataset"
+dataset_dir = r"<>\Machine Learning\MLDatasets\ChineseCharacterDataset"
 valid_dir = os.path.join(dataset_dir, "Test")
 valid_ds = _dataloader.DeformedDataset(os.path.join(dataset_dir, "Test", "Features"), os.path.join(dataset_dir, "Test", "Labels"), 2460, 128)
 valid_dl = _dataloader.WrappedDataLoader(DataLoader(valid_ds, batch_size=1, shuffle=False), func=wrap_func)
 
 # set model
 my_model = models._unet.UNet(128, do_layernorm=True).to(dev)
-my_model.load_state_dict(torch.load(r"E:\UROP\Machine Learning\trained_parameters\worthy-glade.torchparams"))
+my_model.load_state_dict(torch.load(r"<>\Machine Learning\worthy-glade.torchparams"))
 
-out_dir = r"C:\Users\gregk\Documents\MyDocuments\Brogramming\Python\UROP\urop-structured-nn\precorrect"
+out_dir = r"<>\Machine Learning\Precorrection3DPrints\MyModelOutput 128x128"
 
 with torch.no_grad():
      for idx, (xb, yb) in enumerate(valid_dl):
@@ -55,4 +56,5 @@ with torch.no_grad():
           figManager.window.showMaximized()
           plt.show()
 
-          cv2.imwrite(os.path.join(out_dir, f"{idx}.tif"), precorrect)
+          # save precorrected image
+          # cv2.imwrite(os.path.join(out_dir, f"{idx}.tif"), precorrect)

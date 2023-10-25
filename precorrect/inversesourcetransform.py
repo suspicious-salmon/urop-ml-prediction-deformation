@@ -1,4 +1,6 @@
-"""This file, given a folder of thresholded """
+"""This file, given a folder of black-and-white images (should be the thresholded outputs
+of the trained NN), scales those down to 80x80px as in the original source fonts, at the correct scale factor.
+These 80x80px outputs can then be converted into STL files to 3D print."""
 
 import cv2
 import os

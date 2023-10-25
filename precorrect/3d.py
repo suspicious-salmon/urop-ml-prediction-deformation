@@ -1,4 +1,4 @@
-# Converts black-and-white PNG images (black content, white everything else) to STL files at a scale of 1mm per pixel, with depth extrusion_length mm.
+"""Converts black-and-white PNG images (black content, white everything else) to STL files at a scale of 1mm per pixel, with depth extrusion_length mm."""
 
 #%%
 import os

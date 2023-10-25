@@ -65,8 +65,8 @@ def main():
     _metrics.get_directory_metrics(os.path.join(output_folder, "heatmaps"), output_folder)
 
 if __name__ == "__main__":
-    output_folder = r"E:\greg\CharacterDeform\Results\Run2"
-    scans_folder = r"E:\greg\CharacterDeform\1st batch\myruns\my_actual_unaligned"
-    font_folder = r"E:\greg\CharacterDeform\1st batch\nominal_fonts"
+    output_folder = r"<>\Machine Learning\Saras3DPrints\Results\MyRun"
+    scans_folder = r"<>\Machine Learning\Saras3DPrints\ct_characters_unaligned"
+    font_folder = r"<>\Machine Learning\Saras3DPrints\nominal_fonts"
 
     main()
